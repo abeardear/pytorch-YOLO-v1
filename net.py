@@ -25,22 +25,37 @@ model_urls = {
 
 class VGG(nn.Module):
 
-    def __init__(self, features, num_classes=1000):
+    def __init__(self, features, num_classes=1000, image_size=448):
         super(VGG, self).__init__()
         self.features = features
+        self.image_size = image_size
+        # self.classifier = nn.Sequential(
+        #     nn.Linear(512 * 7 * 7, 4096),
+        #     nn.ReLU(True),
+        #     nn.Dropout(),
+        #     nn.Linear(4096, 4096),
+        #     nn.ReLU(True),
+        #     nn.Dropout(),
+        #     nn.Linear(4096, num_classes),
+        # )
+        # if self.image_size == 448:
+        #     self.extra_conv1 = conv_bn_relu(512,512)
+        #     self.extra_conv2 = conv_bn_relu(512,512)
+        #     self.downsample = nn.MaxPool2d(kernel_size=2, stride=2)
         self.classifier = nn.Sequential(
             nn.Linear(512 * 7 * 7, 4096),
             nn.ReLU(True),
             nn.Dropout(),
-            nn.Linear(4096, 4096),
-            nn.ReLU(True),
-            nn.Dropout(),
-            nn.Linear(4096, num_classes),
+            nn.Linear(4096, 1470),
         )
         self._initialize_weights()
 
     def forward(self, x):
         x = self.features(x)
+        # if self.image_size == 448:
+        #     x = self.extra_conv1(x)
+        #     x = self.extra_conv2(x)
+        #     x = self.downsample(x)
         x = x.view(x.size(0), -1)
         x = self.classifier(x)
         x = F.sigmoid(x) #归一化到0-1
@@ -65,17 +80,30 @@ class VGG(nn.Module):
 def make_layers(cfg, batch_norm=False):
     layers = []
     in_channels = 3
+    s = 1
+    first_flag=True
     for v in cfg:
+        s=1
+        if (v==64 and first_flag):
+            s=2
+            first_flag=False
         if v == 'M':
             layers += [nn.MaxPool2d(kernel_size=2, stride=2)]
         else:
-            conv2d = nn.Conv2d(in_channels, v, kernel_size=3, padding=1)
+            conv2d = nn.Conv2d(in_channels, v, kernel_size=3, stride=s, padding=1)
             if batch_norm:
                 layers += [conv2d, nn.BatchNorm2d(v), nn.ReLU(inplace=True)]
             else:
                 layers += [conv2d, nn.ReLU(inplace=True)]
             in_channels = v
     return nn.Sequential(*layers)
+
+def conv_bn_relu(in_channels,out_channels,kernel_size=3,stride=2,padding=1):
+    return nn.Sequential(
+        nn.Conv2d(in_channels,out_channels,kernel_size=kernel_size,padding=padding,stride=stride),
+        nn.BatchNorm2d(out_channels),
+        nn.ReLU(True)
+    )
 
 
 cfg = {

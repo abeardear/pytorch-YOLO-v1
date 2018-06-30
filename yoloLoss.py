@@ -81,6 +81,7 @@ class yoloLoss(nn.Module):
         coo_response_mask.zero_()
         coo_not_response_mask = torch.cuda.ByteTensor(box_target.size())
         coo_not_response_mask.zero_()
+        box_target_iou = torch.zeros(box_target.size()).cuda()
         for i in range(0,box_target.size()[0],2): #choose the best iou box
             box1 = box_pred[i:i+2]
             box1_xyxy = Variable(torch.FloatTensor(box1.size()))
@@ -96,10 +97,19 @@ class yoloLoss(nn.Module):
             
             coo_response_mask[i+max_index]=1
             coo_not_response_mask[i+1-max_index]=1
+
+            #####
+            # we want the confidence score to equal the
+            # intersection over union (IOU) between the predicted box
+            # and the ground truth
+            #####
+            box_target_iou[i+max_index,torch.LongTensor([4]).cuda()] = (max_iou).data.cuda()
+        box_target_iou = Variable(box_target_iou).cuda()
         #1.response loss
         box_pred_response = box_pred[coo_response_mask].view(-1,5)
+        box_target_response_iou = box_target_iou[coo_response_mask].view(-1,5)
         box_target_response = box_target[coo_response_mask].view(-1,5)
-        contain_loss = F.mse_loss(box_pred_response[:,4],box_target_response[:,4],size_average=False)
+        contain_loss = F.mse_loss(box_pred_response[:,4],box_target_response_iou[:,4],size_average=False)
         loc_loss = F.mse_loss(box_pred_response[:,:2],box_target_response[:,:2],size_average=False) + F.mse_loss(torch.sqrt(box_pred_response[:,2:4]),torch.sqrt(box_target_response[:,2:4]),size_average=False)
         #2.not response loss
         box_pred_not_response = box_pred[coo_not_response_mask].view(-1,5)

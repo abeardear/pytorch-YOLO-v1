@@ -3,7 +3,7 @@
 #created by xiongzihua
 #
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 import numpy as np
 VOC_CLASSES = (    # always index 0
     'aeroplane', 'bicycle', 'bird', 'boat',
@@ -137,70 +137,82 @@ if __name__ == '__main__':
     from predict import *
     from collections import defaultdict
     from tqdm import tqdm
-    from resnet import resnet18
 
     target =  defaultdict(list)
     preds = defaultdict(list)
     image_list = [] #image path list
 
-    f = open('voc2012.txt')
+    # f = open('voc2007test.txt')
+    f = open('voc07_test.txt')
     lines = f.readlines()
     file_list = []
     for line in lines:
         splited = line.strip().split()
         file_list.append(splited)
     f.close()
+
+    f_diff = open('voc07_test_difficult.txt')
+    lines = f_diff.readlines()
+    difficult_list = []
+    for line in lines:
+        splited = line.strip().split()
+        # print(splited)
+        difficult_list.append(splited)
+    f_diff.close()
     print('---prepare target---')
-    for image_file in tqdm(file_list):
+    for index,image_file in enumerate(file_list):
+        image_diff = difficult_list[index]
         image_id = image_file[0]
+        assert image_id == image_diff[0]
+
         image_list.append(image_id)
-        num_obj = int(image_file[1])
+        num_obj = (len(image_file) - 1) // 5
         for i in range(num_obj):
-            x1 = int(image_file[2+5*i])
-            y1 = int(image_file[3+5*i])
-            x2 = int(image_file[4+5*i])
-            y2 = int(image_file[5+5*i])
-            c = int(image_file[6+5*i])
+            difficult = image_diff[i+1]
+            x1 = int(image_file[1+5*i])
+            y1 = int(image_file[2+5*i])
+            x2 = int(image_file[3+5*i])
+            y2 = int(image_file[4+5*i])
+            c = int(image_file[5+5*i])
             class_name = VOC_CLASSES[c]
-            target[(image_id,class_name)].append([x1,y1,x2,y2])
+            if difficult=='1':
+                continue
+            else:
+                target[(image_id,class_name)].append([x1,y1,x2,y2])
     #
     #start test
     #
     print('---start test---')
-    model = vgg16(pretrained=False)
-    model.classifier = nn.Sequential(
-                nn.Linear(512 * 7 * 7, 4096),
-                nn.ReLU(True),
-                nn.Dropout(),
-                #nn.Linear(4096, 4096),
-                #nn.ReLU(True),
-                #nn.Dropout(),
-                nn.Linear(4096, 1470),
-            )
-    '''model = resnet18(pretrained=False)
-    model.fc = nn.Linear(512,1470)'''
+    model = vgg16_bn(pretrained=False)
+    # model.classifier = nn.Sequential(
+    #             nn.Linear(512 * 7 * 7, 4096),
+    #             nn.ReLU(True),
+    #             nn.Dropout(),
+    #             #nn.Linear(4096, 4096),
+    #             #nn.ReLU(True),
+    #             #nn.Dropout(),
+    #             nn.Linear(4096, 1470),
+    #         )
     model.load_state_dict(torch.load('best.pth'))
     model.eval()
     model.cuda()
     count = 0
     for image_path in tqdm(image_list):
-        result = predict_gpu(model,image_path,root_path='/home/xzh/codedata/voc2012train/JPEGImages/') #result[[left_up,right_bottom,class_name,image_path],]
+        result = predict_gpu(model,image_path,root_path='/home/xzh/data/VOCdevkit/VOC2012/allimgs/') #result[[left_up,right_bottom,class_name,image_path],]
         for (x1,y1),(x2,y2),class_name,image_id,prob in result: #image_id is actually image_path
             preds[class_name].append([image_id,prob,x1,y1,x2,y2])
-        '''image = cv2.imread('/home/xzh/codedata/voc2012train/JPEGImages/'+image_path)
+        # print(image_path)
+        image = cv2.imread('/home/xzh/data/VOCdevkit/VOC2012/allimgs/'+image_path)
         for left_up,right_bottom,class_name,_,prob in result:
             color = Color[VOC_CLASSES.index(class_name)]
             cv2.rectangle(image,left_up,right_bottom,color,2)
-            cv2.putText(image,class_name,left_up,cv2.FONT_HERSHEY_SIMPLEX,1,color,1,cv2.LINE_AA)
+            cv2.putText(image,class_name+str(round(prob,2)),left_up,cv2.FONT_HERSHEY_SIMPLEX,0.6,(0,0,0),1,cv2.LINE_AA)
             #print(prob)
 
-            cv2.imwrite('testimg/'+image_path,image)
+        cv2.imwrite('testimg/'+image_path,image)
         count += 1
-        if count == 50:
-            break'''
+        if count == 300:
+            break
     
     print('---start evaluate---')
     voc_eval(preds,target,VOC_CLASSES=VOC_CLASSES)
-
-
-

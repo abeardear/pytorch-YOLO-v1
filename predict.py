@@ -6,7 +6,7 @@ import torch
 from torch.autograd import Variable
 import torch.nn as nn
 
-from net import vgg16
+from net import vgg16, vgg16_bn
 import torchvision.transforms as transforms
 import cv2
 import numpy as np
@@ -32,7 +32,7 @@ def decoder(pred):
     contain1 = pred[:,:,4].unsqueeze(2)
     contain2 = pred[:,:,9].unsqueeze(2)
     contain = torch.cat((contain1,contain2),2)
-    mask1 = contain > 0.9 #大于阈值
+    mask1 = contain > 0.2 #大于阈值
     mask2 = (contain==contain.max()) #we always select the best contain_prob what ever it>0.9
     mask = (mask1+mask2).gt(0)
     min_score,min_index = torch.min(mask,2) #每个cell只选最大概率的那个预测框
@@ -103,7 +103,7 @@ def predict_gpu(model,image_name,root_path=''):
     result = []
     image = cv2.imread(root_path+image_name)
     h,w,_ = image.shape
-    img = cv2.resize(image,(224,224))
+    img = cv2.resize(image,(448,448))
     img = cv2.cvtColor(img,cv2.COLOR_BGR2RGB)
     mean = (123,117,104)#RGB
     img = img - np.array(mean,dtype=np.float32)
@@ -133,7 +133,7 @@ def predict_gpu(model,image_name,root_path=''):
 
 
 if __name__ == '__main__':
-    model = vgg16(pretrained=False)
+    model = vgg16_bn(pretrained=False)
     model.classifier = nn.Sequential(
                 nn.Linear(512 * 7 * 7, 4096),
                 nn.ReLU(True),

@@ -3,7 +3,7 @@
 #created by xiongzihua
 #
 '''
-txt描述文件 image_name.jpg num x y w h c x y w h c 这样就是说一张图片中有两个目标
+txt描述文件 image_name.jpg x y w h c x y w h c 这样就是说一张图片中有两个目标
 '''
 import os
 import sys
@@ -19,7 +19,7 @@ import torchvision.transforms as transforms
 import cv2
 
 class yoloDataset(data.Dataset):
-    image_size = 224
+    image_size = 448
     def __init__(self,root,list_file,train,transform):
         print('data init')
         self.root=root
@@ -30,21 +30,28 @@ class yoloDataset(data.Dataset):
         self.labels = []
         self.mean = (123,117,104)#RGB
 
+        if isinstance(list_file, list):
+            # Cat multiple list files together.
+            # This is especially useful for voc07/voc12 combination.
+            tmp_file = '/tmp/listfile.txt'
+            os.system('cat %s > %s' % (' '.join(list_file), tmp_file))
+            list_file = tmp_file
+
         with open(list_file) as f:
             lines  = f.readlines()
 
         for line in lines:
             splited = line.strip().split()
             self.fnames.append(splited[0])
-            num_faces = int(splited[1])
+            num_boxes = (len(splited) - 1) // 5
             box=[]
             label=[]
-            for i in range(num_faces):
-                x = float(splited[2+5*i])
-                y = float(splited[3+5*i])
-                x2 = float(splited[4+5*i])
-                y2 = float(splited[5+5*i])
-                c = splited[6+5*i]
+            for i in range(num_boxes):
+                x = float(splited[1+5*i])
+                y = float(splited[2+5*i])
+                x2 = float(splited[3+5*i])
+                y2 = float(splited[4+5*i])
+                c = splited[5+5*i]
                 box.append([x,y,x2,y2])
                 label.append(int(c)+1)
             self.boxes.append(torch.Tensor(box))

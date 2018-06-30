@@ -1,5 +1,5 @@
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
@@ -7,8 +7,7 @@ import torchvision.transforms as transforms
 from torchvision import models
 from torch.autograd import Variable
 
-from net import vgg16
-from resnet import resnet18
+from net import vgg16, vgg16_bn
 from yoloLoss import yoloLoss
 from dataset import yoloDataset
 
@@ -17,31 +16,41 @@ import numpy as np
 
 use_gpu = torch.cuda.is_available()
 
-file_root = '/home/xzh/codedata/voc2012train/JPEGImages/'
-test_root = '/home/xzh/codedata/voc2007test/JPEGImages/'
-learning_rate = 0.0001
+file_root = '/home/xzh/data/VOCdevkit/VOC2012/allimgs/'
+learning_rate = 0.001
 num_epochs = 120
 batch_size = 32
-net = vgg16(pretrained=True)
-net.classifier = nn.Sequential(
-            nn.Linear(512 * 7 * 7, 4096),
-            nn.ReLU(True),
-            nn.Dropout(),
-            #nn.Linear(4096, 4096),
-            #nn.ReLU(True),
-            #nn.Dropout(),
-            nn.Linear(4096, 1470),
-        )
+net = vgg16_bn()
+# net.classifier = nn.Sequential(
+#             nn.Linear(512 * 7 * 7, 4096),
+#             nn.ReLU(True),
+#             nn.Dropout(),
+#             #nn.Linear(4096, 4096),
+#             #nn.ReLU(True),
+#             #nn.Dropout(),
+#             nn.Linear(4096, 1470),
+#         )
 #net = resnet18(pretrained=True)
 #net.fc = nn.Linear(512,1470)
 # initial Linear
-for m in net.modules():
-    if isinstance(m, nn.Linear):
-        m.weight.data.normal_(0, 0.01)
-        m.bias.data.zero_()
+# for m in net.modules():
+#     if isinstance(m, nn.Linear):
+#         m.weight.data.normal_(0, 0.01)
+#         m.bias.data.zero_()
 print(net)
 #net.load_state_dict(torch.load('yolo.pth'))
 print('load pre-trined model')
+vgg = models.vgg16_bn(pretrained=True)
+new_state_dict = vgg.state_dict()
+dd = net.state_dict()
+for k in new_state_dict.keys():
+    print(k)
+    if k in dd.keys() and k.startswith('features'):
+        print('yes')
+        dd[k] = new_state_dict[k]
+net.load_state_dict(dd)
+# if True:
+#     net.load_state_dict(torch.load('yolo448sgd.pth'))
 print('cuda', torch.cuda.current_device(), torch.cuda.device_count())
 
 criterion = yoloLoss(7,2,5,0.5)
@@ -49,12 +58,20 @@ if use_gpu:
     net.cuda()
 
 net.train()
-optimizer = torch.optim.SGD(net.parameters(), lr=learning_rate, momentum=0.9, weight_decay=5e-4)
+# different learning rate
+params=[]
+params_dict = dict(net.named_parameters())
+for key,value in params_dict.items():
+    if key.startswith('features'):
+        params += [{'params':[value],'lr':learning_rate*1}]
+    else:
+        params += [{'params':[value],'lr':learning_rate}]
+optimizer = torch.optim.SGD(params, lr=learning_rate, momentum=0.9, weight_decay=5e-4)
 # optimizer = torch.optim.Adam(net.parameters(),lr=learning_rate,weight_decay=1e-4)
 
-train_dataset = yoloDataset(root=file_root,list_file='voc2012.txt',train=True,transform = [transforms.ToTensor()] )
+train_dataset = yoloDataset(root=file_root,list_file=['voc12_trainval.txt','voc07_trainval.txt'],train=True,transform = [transforms.ToTensor()] )
 train_loader = DataLoader(train_dataset,batch_size=batch_size,shuffle=True,num_workers=4)
-test_dataset = yoloDataset(root=test_root,list_file='voc2007test.txt',train=False,transform = [transforms.ToTensor()] )
+test_dataset = yoloDataset(root=file_root,list_file='voc07_test.txt',train=False,transform = [transforms.ToTensor()] )
 test_loader = DataLoader(test_dataset,batch_size=batch_size,shuffle=False,num_workers=4)
 print('the dataset has %d images' % (len(train_dataset)))
 print('the batch_size is %d' % (batch_size))
@@ -66,12 +83,12 @@ best_test_loss = np.inf
 
 for epoch in range(num_epochs):
     net.train()
-    if epoch == 1:
-        learning_rate = 0.0005
-    if epoch == 2:
-        learning_rate = 0.00075
-    if epoch == 3:
-        learning_rate = 0.001
+    # if epoch == 1:
+    #     learning_rate = 0.0005
+    # if epoch == 2:
+    #     learning_rate = 0.00075
+    # if epoch == 3:
+    #     learning_rate = 0.001
     if epoch == 80:
         learning_rate=0.0001
     if epoch == 100:
