@@ -2,7 +2,7 @@
 
 [中文](中文.md)
 
-**This is a testing repository, which can not repeat the result in original [paper](https://arxiv.org/pdf/1506.02640.pdf), our performance on voc07test is 0.44 map**
+**This is a testing repository, which can not repeat the result in original [paper](https://arxiv.org/pdf/1506.02640.pdf), our performance on voc07test is 0.44 map, 84fps@1080ti**
 
 **I will lead a discussion later, if you are interested in it, it will be welcome to contact me. If you find any bug in it, please let me know.**
 

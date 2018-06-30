@@ -202,17 +202,17 @@ if __name__ == '__main__':
         for (x1,y1),(x2,y2),class_name,image_id,prob in result: #image_id is actually image_path
             preds[class_name].append([image_id,prob,x1,y1,x2,y2])
         # print(image_path)
-        image = cv2.imread('/home/xzh/data/VOCdevkit/VOC2012/allimgs/'+image_path)
-        for left_up,right_bottom,class_name,_,prob in result:
-            color = Color[VOC_CLASSES.index(class_name)]
-            cv2.rectangle(image,left_up,right_bottom,color,2)
-            cv2.putText(image,class_name+str(round(prob,2)),left_up,cv2.FONT_HERSHEY_SIMPLEX,0.6,(0,0,0),1,cv2.LINE_AA)
-            #print(prob)
+        # image = cv2.imread('/home/xzh/data/VOCdevkit/VOC2012/allimgs/'+image_path)
+        # for left_up,right_bottom,class_name,_,prob in result:
+        #     color = Color[VOC_CLASSES.index(class_name)]
+        #     cv2.rectangle(image,left_up,right_bottom,color,2)
+        #     cv2.putText(image,class_name+str(round(prob,2)),left_up,cv2.FONT_HERSHEY_SIMPLEX,0.6,(0,0,0),1,cv2.LINE_AA)
+        #     #print(prob)
 
-        cv2.imwrite('testimg/'+image_path,image)
-        count += 1
-        if count == 300:
-            break
+        # cv2.imwrite('testimg/'+image_path,image)
+        # count += 1
+        # if count == 300:
+        #     break
     
     print('---start evaluate---')
     voc_eval(preds,target,VOC_CLASSES=VOC_CLASSES)
