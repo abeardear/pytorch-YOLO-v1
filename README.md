@@ -2,18 +2,24 @@
 
 [中文](中文.md)
 
-**This is a testing repository, which can not repeat the result in original [paper](https://arxiv.org/pdf/1506.02640.pdf), our performance on voc07test is 0.44 map, 84fps@1080ti**
+**This is a experimental repository, which are not exactly the same as the original [paper](https://arxiv.org/pdf/1506.02640.pdf), our performance on voc07test is 0.665 map, 57fps@1080ti**
 
-**I will lead a discussion later, if you are interested in it, it will be welcome to contact me. If you find any bug in it, please let me know.**
+I write this code for the purpose of learning. In yoloLoss.py, i write forward only, with autograd mechanism, backward will be done automatically.
 
-I write this code for learning useage. In yoloLoss.py, i write forward only, with autograd mechanism, backward will be done automatically.
+For the convenience of using pytorch pretrained model, our backbone network is resnet50, add an extra block to increase the receptive field, in addition, we drop Fully connected layer.
 
-### update
+Effciency has not been optimized. It may be faster... I don't know 
 
-1. Change vgg16 to vgg16_bn
-2. Include voc07_trainval, and i notice that when we evaluate on voc07 test, we should exclude difficult box......
-3. Enlarging the size of the image does not achieve the desired effect, 224x224 can get 0.43 map, 448x448 is 0.44. I change conv1 stride=2 to fit 448 resolution. Better network design may work better.
-4. In yololoss, we want the confidence score to equal the IOU between the predicted box and the ground truth.
+![](person_result.jpg)
+
+![](dog_result.jpg)
+
+## Train on voc2012+2007
+| model                | backbone | map@voc2007test  | FPS  |
+| -------------------- | -------------- | ---------- | -------   |
+| our ResNet_YOLO  |   ResNet50        | 66.5%      |  57   |
+| YOLO  |   darknet19?        | 63.4%      |  45   |
+| YOLO VGG-16  |   VGG-16        | 66.4%      |  21   |
 
 ### 1. Dependency
 - pytorch 0.2.0_2
@@ -38,23 +44,9 @@ Run python eval_voc.py
 
 *be careful* 1. change the image file path
 
-### 5. Discussion
+### 5. result
 
-1. Overfit problem
-
-I draw the training loss curve and testing loss curve, it is obvious it has overfitting. I did many data augmentation to overcome it, but it improved little.
-
-![loss](experimentIMG/yoloLoss.svg)
-
-2. Activation function in the last fc layer
-
-The origin paper use linear activation functiona for the final layer, it's output will in [-inf,+inf], but the target is in [0,1], so i use sigmoid activation function to replace it. I think this is more reasonable, if you konw the detail about it, please let me know.
-
-Update: I did another experiment. I use linear activation, set learning rate carefully as the paper, and replace sqrt(w), sqrt(h) to (wh) to avoid nan problem. But the result is not good too.
-
-### 6. result
-
-Our map in voc2007 test set is 0.44~ some result are below.
+Our map in voc2007 test set is 0.665~ some result are below, you can see more in testimg folder.
 
 ![](testimg/000339.jpg)
 
