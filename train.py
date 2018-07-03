@@ -1,5 +1,5 @@
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
@@ -8,6 +8,7 @@ from torchvision import models
 from torch.autograd import Variable
 
 from net import vgg16, vgg16_bn
+from resnet_yolo import resnet50, resnet18
 from yoloLoss import yoloLoss
 from dataset import yoloDataset
 
@@ -18,9 +19,13 @@ use_gpu = torch.cuda.is_available()
 
 file_root = '/home/xzh/data/VOCdevkit/VOC2012/allimgs/'
 learning_rate = 0.001
-num_epochs = 120
-batch_size = 32
-net = vgg16_bn()
+num_epochs = 50
+batch_size = 24
+use_resnet = True
+if use_resnet:
+    net = resnet50()
+else:
+    net = vgg16_bn()
 # net.classifier = nn.Sequential(
 #             nn.Linear(512 * 7 * 7, 4096),
 #             nn.ReLU(True),
@@ -40,17 +45,28 @@ net = vgg16_bn()
 print(net)
 #net.load_state_dict(torch.load('yolo.pth'))
 print('load pre-trined model')
-vgg = models.vgg16_bn(pretrained=True)
-new_state_dict = vgg.state_dict()
-dd = net.state_dict()
-for k in new_state_dict.keys():
-    print(k)
-    if k in dd.keys() and k.startswith('features'):
-        print('yes')
-        dd[k] = new_state_dict[k]
-net.load_state_dict(dd)
-# if True:
-#     net.load_state_dict(torch.load('yolo448sgd.pth'))
+if use_resnet:
+    resnet = models.resnet50(pretrained=True)
+    new_state_dict = resnet.state_dict()
+    dd = net.state_dict()
+    for k in new_state_dict.keys():
+        print(k)
+        if k in dd.keys() and not k.startswith('fc'):
+            print('yes')
+            dd[k] = new_state_dict[k]
+    net.load_state_dict(dd)
+else:
+    vgg = models.vgg16_bn(pretrained=True)
+    new_state_dict = vgg.state_dict()
+    dd = net.state_dict()
+    for k in new_state_dict.keys():
+        print(k)
+        if k in dd.keys() and k.startswith('features'):
+            print('yes')
+            dd[k] = new_state_dict[k]
+    net.load_state_dict(dd)
+if False:
+    net.load_state_dict(torch.load('best.pth'))
 print('cuda', torch.cuda.current_device(), torch.cuda.device_count())
 
 criterion = yoloLoss(7,2,5,0.5)
@@ -69,9 +85,11 @@ for key,value in params_dict.items():
 optimizer = torch.optim.SGD(params, lr=learning_rate, momentum=0.9, weight_decay=5e-4)
 # optimizer = torch.optim.Adam(net.parameters(),lr=learning_rate,weight_decay=1e-4)
 
-train_dataset = yoloDataset(root=file_root,list_file=['voc12_trainval.txt','voc07_trainval.txt'],train=True,transform = [transforms.ToTensor()] )
+# train_dataset = yoloDataset(root=file_root,list_file=['voc12_trainval.txt','voc07_trainval.txt'],train=True,transform = [transforms.ToTensor()] )
+train_dataset = yoloDataset(root=file_root,list_file=['voc2012.txt','voc2007.txt'],train=True,transform = [transforms.ToTensor()] )
 train_loader = DataLoader(train_dataset,batch_size=batch_size,shuffle=True,num_workers=4)
-test_dataset = yoloDataset(root=file_root,list_file='voc07_test.txt',train=False,transform = [transforms.ToTensor()] )
+# test_dataset = yoloDataset(root=file_root,list_file='voc07_test.txt',train=False,transform = [transforms.ToTensor()] )
+test_dataset = yoloDataset(root=file_root,list_file='voc2007test.txt',train=False,transform = [transforms.ToTensor()] )
 test_loader = DataLoader(test_dataset,batch_size=batch_size,shuffle=False,num_workers=4)
 print('the dataset has %d images' % (len(train_dataset)))
 print('the batch_size is %d' % (batch_size))
@@ -89,9 +107,9 @@ for epoch in range(num_epochs):
     #     learning_rate = 0.00075
     # if epoch == 3:
     #     learning_rate = 0.001
-    if epoch == 80:
+    if epoch == 30:
         learning_rate=0.0001
-    if epoch == 100:
+    if epoch == 40:
         learning_rate=0.00001
     # optimizer = torch.optim.SGD(net.parameters(),lr=learning_rate*0.1,momentum=0.9,weight_decay=1e-4)
     for param_group in optimizer.param_groups:

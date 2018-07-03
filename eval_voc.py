@@ -3,7 +3,7 @@
 #created by xiongzihua
 #
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 import numpy as np
 VOC_CLASSES = (    # always index 0
     'aeroplane', 'bicycle', 'bird', 'boat',
@@ -142,48 +142,33 @@ if __name__ == '__main__':
     preds = defaultdict(list)
     image_list = [] #image path list
 
-    # f = open('voc2007test.txt')
-    f = open('voc07_test.txt')
+    f = open('voc2007test.txt')
     lines = f.readlines()
     file_list = []
     for line in lines:
         splited = line.strip().split()
         file_list.append(splited)
     f.close()
-
-    f_diff = open('voc07_test_difficult.txt')
-    lines = f_diff.readlines()
-    difficult_list = []
-    for line in lines:
-        splited = line.strip().split()
-        # print(splited)
-        difficult_list.append(splited)
-    f_diff.close()
     print('---prepare target---')
     for index,image_file in enumerate(file_list):
-        image_diff = difficult_list[index]
         image_id = image_file[0]
-        assert image_id == image_diff[0]
 
         image_list.append(image_id)
         num_obj = (len(image_file) - 1) // 5
         for i in range(num_obj):
-            difficult = image_diff[i+1]
             x1 = int(image_file[1+5*i])
             y1 = int(image_file[2+5*i])
             x2 = int(image_file[3+5*i])
             y2 = int(image_file[4+5*i])
             c = int(image_file[5+5*i])
             class_name = VOC_CLASSES[c]
-            if difficult=='1':
-                continue
-            else:
-                target[(image_id,class_name)].append([x1,y1,x2,y2])
+            target[(image_id,class_name)].append([x1,y1,x2,y2])
     #
     #start test
     #
     print('---start test---')
-    model = vgg16_bn(pretrained=False)
+    # model = vgg16_bn(pretrained=False)
+    model = resnet50()
     # model.classifier = nn.Sequential(
     #             nn.Linear(512 * 7 * 7, 4096),
     #             nn.ReLU(True),
@@ -206,12 +191,15 @@ if __name__ == '__main__':
         # for left_up,right_bottom,class_name,_,prob in result:
         #     color = Color[VOC_CLASSES.index(class_name)]
         #     cv2.rectangle(image,left_up,right_bottom,color,2)
-        #     cv2.putText(image,class_name+str(round(prob,2)),left_up,cv2.FONT_HERSHEY_SIMPLEX,0.6,(0,0,0),1,cv2.LINE_AA)
-        #     #print(prob)
+        #     label = class_name+str(round(prob,2))
+        #     text_size, baseline = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.4, 1)
+        #     p1 = (left_up[0], left_up[1]- text_size[1])
+        #     cv2.rectangle(image, (p1[0] - 2//2, p1[1] - 2 - baseline), (p1[0] + text_size[0], p1[1] + text_size[1]), color, -1)
+        #     cv2.putText(image, label, (p1[0], p1[1] + baseline), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255,255,255), 1, 8)
 
         # cv2.imwrite('testimg/'+image_path,image)
         # count += 1
-        # if count == 300:
+        # if count == 100:
         #     break
     
     print('---start evaluate---')

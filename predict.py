@@ -7,6 +7,7 @@ from torch.autograd import Variable
 import torch.nn as nn
 
 from net import vgg16, vgg16_bn
+from resnet_yolo import resnet50
 import torchvision.transforms as transforms
 import cv2
 import numpy as np
@@ -18,26 +19,49 @@ VOC_CLASSES = (    # always index 0
     'motorbike', 'person', 'pottedplant',
 'sheep', 'sofa', 'train', 'tvmonitor')
 
+Color = [[0, 0, 0],
+                    [128, 0, 0],
+                    [0, 128, 0],
+                    [128, 128, 0],
+                    [0, 0, 128],
+                    [128, 0, 128],
+                    [0, 128, 128],
+                    [128, 128, 128],
+                    [64, 0, 0],
+                    [192, 0, 0],
+                    [64, 128, 0],
+                    [192, 128, 0],
+                    [64, 0, 128],
+                    [192, 0, 128],
+                    [64, 128, 128],
+                    [192, 128, 128],
+                    [0, 64, 0],
+                    [128, 64, 0],
+                    [0, 192, 0],
+                    [128, 192, 0],
+                    [0, 64, 128]]
+
 def decoder(pred):
     '''
     pred (tensor) 1x7x7x30
     return (tensor) box[[x1,y1,x2,y2]] label[...]
     '''
+    grid_num = 14
     boxes=[]
     cls_indexs=[]
     probs = []
-    cell_size = 1./7
+    cell_size = 1./grid_num
     pred = pred.data
     pred = pred.squeeze(0) #7x7x30
     contain1 = pred[:,:,4].unsqueeze(2)
     contain2 = pred[:,:,9].unsqueeze(2)
     contain = torch.cat((contain1,contain2),2)
-    mask1 = contain > 0.2 #大于阈值
+    mask1 = contain > 0.1 #大于阈值
     mask2 = (contain==contain.max()) #we always select the best contain_prob what ever it>0.9
     mask = (mask1+mask2).gt(0)
     min_score,min_index = torch.min(mask,2) #每个cell只选最大概率的那个预测框
-    for i in range(7):
-        for j in range(7):
+    for i in range(grid_num):
+        for j in range(grid_num):
             for b in range(2):
                 index = min_index[i,j]
                 mask[i,j,index] = 0
@@ -51,12 +75,18 @@ def decoder(pred):
                     box_xy[:2] = box[:2] - 0.5*box[2:]
                     box_xy[2:] = box[:2] + 0.5*box[2:]
                     max_prob,cls_index = torch.max(pred[i,j,10:],0)
-                    boxes.append(box_xy.view(1,4))
-                    cls_indexs.append(cls_index)
-                    probs.append(contain_prob)
-    boxes = torch.cat(boxes,0) #(n,4)
-    probs = torch.cat(probs,0) #(n,)
-    cls_indexs = torch.cat(cls_indexs,0) #(n,)
+                    if float((contain_prob*max_prob)[0]) > 0.1:
+                        boxes.append(box_xy.view(1,4))
+                        cls_indexs.append(cls_index)
+                        probs.append(contain_prob*max_prob)
+    if len(boxes) ==0:
+        boxes = torch.zeros((1,4))
+        probs = torch.zeros(1)
+        cls_indexs = torch.zeros(1)
+    else:
+        boxes = torch.cat(boxes,0) #(n,4)
+        probs = torch.cat(probs,0) #(n,)
+        cls_indexs = torch.cat(cls_indexs,0) #(n,)
     keep = nms(boxes,probs)
     return boxes[keep],cls_indexs[keep],probs[keep]
 
@@ -133,26 +163,23 @@ def predict_gpu(model,image_name,root_path=''):
 
 
 if __name__ == '__main__':
-    model = vgg16_bn(pretrained=False)
-    model.classifier = nn.Sequential(
-                nn.Linear(512 * 7 * 7, 4096),
-                nn.ReLU(True),
-                nn.Dropout(),
-                #nn.Linear(4096, 4096),
-                #nn.ReLU(True),
-                #nn.Dropout(),
-                nn.Linear(4096, 1470),
-            )
-    model.load_state_dict(torch.load('yolo.pth'))
+    model = resnet50()
+    print('load model...')
+    model.load_state_dict(torch.load('best.pth'))
     model.eval()
     model.cuda()
-    image_name = 'test.jpg'
+    image_name = 'person.jpg'
     image = cv2.imread(image_name)
+    print('predicting...')
     result = predict_gpu(model,image_name)
     for left_up,right_bottom,class_name,_,prob in result:
-        cv2.rectangle(image,left_up,right_bottom,(0,255,0),2)
-        cv2.putText(image,class_name,left_up,cv2.FONT_HERSHEY_SIMPLEX,1,(0,0,255),1,cv2.LINE_AA)
-        print(prob)
+        color = Color[VOC_CLASSES.index(class_name)]
+        cv2.rectangle(image,left_up,right_bottom,color,2)
+        label = class_name+str(round(prob,2))
+        text_size, baseline = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.4, 1)
+        p1 = (left_up[0], left_up[1]- text_size[1])
+        cv2.rectangle(image, (p1[0] - 2//2, p1[1] - 2 - baseline), (p1[0] + text_size[0], p1[1] + text_size[1]), color, -1)
+        cv2.putText(image, label, (p1[0], p1[1] + baseline), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255,255,255), 1, 8)
 
     cv2.imwrite('result.jpg',image)
 

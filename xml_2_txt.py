@@ -14,6 +14,10 @@ def parse_rec(filename):
     objects = []
     for obj in tree.findall('object'):
         obj_struct = {}
+        difficult = int(obj.find('difficult').text)
+        if difficult == 1:
+            # print(filename)
+            continue
         obj_struct['name'] = obj.find('name').text
         #obj_struct['pose'] = obj.find('pose').text
         #obj_struct['truncated'] = int(obj.find('truncated').text)
@@ -27,24 +31,34 @@ def parse_rec(filename):
 
     return objects
 
-txt_file = open('voc2012.txt','w')
+txt_file = open('voc2007test.txt','w')
+test_file = open('voc07testimg.txt','r')
+lines = test_file.readlines()
+lines = [x[:-1] for x in lines]
+print(lines)
 
-Annotations = 'Annotations/'
+Annotations = '/home/xzh/data/VOCdevkit/VOC2007/Annotations/'
 xml_files = os.listdir(Annotations)
 
 count = 0
 for xml_file in xml_files:
     count += 1
+    if xml_file.split('.')[0] not in lines:
+        # print(xml_file.split('.')[0])
+        continue
     image_path = xml_file.split('.')[0] + '.jpg'
-    txt_file.write(image_path+' ')
     results = parse_rec(Annotations + xml_file)
-    num_obj = len(results)
-    txt_file.write(str(num_obj)+' ')
+    if len(results)==0:
+        print(xml_file)
+        continue
+    txt_file.write(image_path)
+    # num_obj = len(results)
+    # txt_file.write(str(num_obj)+' ')
     for result in results:
         class_name = result['name']
         bbox = result['bbox']
         class_name = VOC_CLASSES.index(class_name)
-        txt_file.write(str(bbox[0])+' '+str(bbox[1])+' '+str(bbox[2])+' '+str(bbox[3])+' '+str(class_name)+' ')
+        txt_file.write(' '+str(bbox[0])+' '+str(bbox[1])+' '+str(bbox[2])+' '+str(bbox[3])+' '+str(class_name))
     txt_file.write('\n')
     #if count == 10:
     #    break

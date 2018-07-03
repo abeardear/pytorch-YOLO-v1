@@ -17,6 +17,7 @@ import torch.utils.data as data
 import torchvision.transforms as transforms
 
 import cv2
+import matplotlib.pyplot as plt
 
 class yoloDataset(data.Dataset):
     image_size = 448
@@ -73,7 +74,19 @@ class yoloDataset(data.Dataset):
             img = self.RandomHue(img)
             img = self.RandomSaturation(img)
             img,boxes,labels = self.randomShift(img,boxes,labels)
-
+            img,boxes,labels = self.randomCrop(img,boxes,labels)
+        # #debug
+        # box_show = boxes.numpy().reshape(-1)
+        # print(box_show)
+        # img_show = self.BGR2RGB(img)
+        # pt1=(int(box_show[0]),int(box_show[1])); pt2=(int(box_show[2]),int(box_show[3]))
+        # cv2.rectangle(img_show,pt1=pt1,pt2=pt2,color=(0,255,0),thickness=1)
+        # plt.figure()
+        
+        # # cv2.rectangle(img,pt1=(10,10),pt2=(100,100),color=(0,255,0),thickness=1)
+        # plt.imshow(img_show)
+        # plt.show()
+        # #debug
         h,w,_ = img.shape
         boxes /= torch.Tensor([w,h,w,h]).expand_as(boxes)
         img = self.BGR2RGB(img) #because pytorch pretrained model use RGB
@@ -93,8 +106,9 @@ class yoloDataset(data.Dataset):
         labels (tensor) [...]
         return 7x7x30
         '''
-        target = torch.zeros((7,7,30))
-        cell_size = 1./7
+        grid_num = 14
+        target = torch.zeros((grid_num,grid_num,30))
+        cell_size = 1./grid_num
         wh = boxes[:,2:]-boxes[:,:2]
         cxcy = (boxes[:,2:]+boxes[:,:2])/2
         for i in range(cxcy.size()[0]):
@@ -188,9 +202,9 @@ class yoloDataset(data.Dataset):
         return bgr,boxes,labels
 
     def randomScale(self,bgr,boxes):
-        #固定住高度，以0.6-1.4伸缩宽度，做图像形变
+        #固定住高度，以0.8-1.2伸缩宽度，做图像形变
         if random.random() < 0.5:
-            scale = random.uniform(0.6,1.4)
+            scale = random.uniform(0.8,1.2)
             height,width,c = bgr.shape
             bgr = cv2.resize(bgr,(int(width*scale),height))
             scale_tensor = torch.FloatTensor([[scale,1,scale,1]]).expand_as(boxes)
@@ -219,6 +233,11 @@ class yoloDataset(data.Dataset):
             box_shift = torch.FloatTensor([[x,y,x,y]]).expand_as(boxes_in)
 
             boxes_in = boxes_in - box_shift
+            boxes_in[:,0]=boxes_in[:,0].clamp_(min=0,max=w)
+            boxes_in[:,2]=boxes_in[:,2].clamp_(min=0,max=w)
+            boxes_in[:,1]=boxes_in[:,1].clamp_(min=0,max=h)
+            boxes_in[:,3]=boxes_in[:,3].clamp_(min=0,max=h)
+
             labels_in = labels[mask.view(-1)]
             img_croped = bgr[y:y+h,x:x+w,:]
             return img_croped,boxes_in,labels_in
@@ -252,12 +271,13 @@ class yoloDataset(data.Dataset):
 def main():
     from torch.utils.data import DataLoader
     import torchvision.transforms as transforms
-    file_root = '/media/xiong/449C8E929C8E7DE4/codedata/voc2007/VOCdevkit_train/VOC2007/JPEGImages/'
-    train_dataset = yoloDataset(root=file_root,list_file='voc2007train.txt',train=True,transform = [transforms.ToTensor()] )
+    file_root = '/home/xzh/data/VOCdevkit/VOC2012/allimgs/'
+    train_dataset = yoloDataset(root=file_root,list_file='voc12_trainval.txt',train=True,transform = [transforms.ToTensor()] )
     train_loader = DataLoader(train_dataset,batch_size=1,shuffle=False,num_workers=0)
     train_iter = iter(train_loader)
-    img,target = next(train_iter)
-    print(img,target)
+    for i in range(100):
+        img,target = next(train_iter)
+        print(img,target)
 
 
 if __name__ == '__main__':
