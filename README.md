@@ -48,12 +48,12 @@ Run python eval_voc.py
 
 Our map in voc2007 test set is 0.665~ some result are below, you can see more in testimg folder.
 
-![](testimg/000339.jpg)
+![](testimg/000283.jpg)
 
-![](testimg/000356.jpg)
+![](testimg/000058.jpg)
 
-![](testimg/000447.jpg)
+![](testimg/000059.jpg)
 
-![](testimg/000510.jpg)
+![](testimg/000097.jpg)
 
-![](testimg/000586.jpg)
+![](testimg/001757.jpg)
