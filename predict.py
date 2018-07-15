@@ -59,12 +59,12 @@ def decoder(pred):
     mask1 = contain > 0.1 #大于阈值
     mask2 = (contain==contain.max()) #we always select the best contain_prob what ever it>0.9
     mask = (mask1+mask2).gt(0)
-    min_score,min_index = torch.min(mask,2) #每个cell只选最大概率的那个预测框
+    # min_score,min_index = torch.min(contain,2) #每个cell只选最大概率的那个预测框
     for i in range(grid_num):
         for j in range(grid_num):
             for b in range(2):
-                index = min_index[i,j]
-                mask[i,j,index] = 0
+                # index = min_index[i,j]
+                # mask[i,j,index] = 0
                 if mask[i,j,b] == 1:
                     #print(i,j,b)
                     box = pred[i,j,b*5:b*5+4]
@@ -168,7 +168,7 @@ if __name__ == '__main__':
     model.load_state_dict(torch.load('best.pth'))
     model.eval()
     model.cuda()
-    image_name = 'person.jpg'
+    image_name = 'dog.jpg'
     image = cv2.imread(image_name)
     print('predicting...')
     result = predict_gpu(model,image_name)
