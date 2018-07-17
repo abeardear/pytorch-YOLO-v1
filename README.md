@@ -1,6 +1,6 @@
 ## pytorch YOLO-v1
 
-[中文](中文.md)
+[中文](中文.md) [博客](https://www.cnblogs.com/xiongzihua/p/9315183.html) 
 
 **This is a experimental repository, which are not exactly the same as the original [paper](https://arxiv.org/pdf/1506.02640.pdf), our performance on voc07test is 0.665 map, 57fps@1080ti**
 
