@@ -115,7 +115,11 @@ class yoloLoss(nn.Module):
         box_pred_not_response = box_pred[coo_not_response_mask].view(-1,5)
         box_target_not_response = box_target[coo_not_response_mask].view(-1,5)
         box_target_not_response[:,4]= 0
-        not_contain_loss = F.mse_loss(box_pred_response[:,4],box_target_response[:,4],size_average=False)
+        #not_contain_loss = F.mse_loss(box_pred_response[:,4],box_target_response[:,4],size_average=False)
+        
+        #I believe this bug is simply a typo
+        not_contain_loss = F.mse_loss(box_pred_not_response[:,4], box_target_not_response[:,4],size_average=False)
+
         #3.class loss
         class_loss = F.mse_loss(class_pred,class_target,size_average=False)
 
