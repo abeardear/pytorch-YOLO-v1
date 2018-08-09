@@ -85,12 +85,12 @@ class yoloLoss(nn.Module):
         for i in range(0,box_target.size()[0],2): #choose the best iou box
             box1 = box_pred[i:i+2]
             box1_xyxy = Variable(torch.FloatTensor(box1.size()))
-            box1_xyxy[:,:2] = box1[:,:2] -0.5*box1[:,2:4]
-            box1_xyxy[:,2:4] = box1[:,:2] +0.5*box1[:,2:4]
+            box1_xyxy[:,:2] = box1[:,:2]/14. -0.5*box1[:,2:4]
+            box1_xyxy[:,2:4] = box1[:,:2]/14. +0.5*box1[:,2:4]
             box2 = box_target[i].view(-1,5)
             box2_xyxy = Variable(torch.FloatTensor(box2.size()))
-            box2_xyxy[:,:2] = box2[:,:2] -0.5*box2[:,2:4]
-            box2_xyxy[:,2:4] = box2[:,:2] +0.5*box2[:,2:4]
+            box2_xyxy[:,:2] = box2[:,:2]/14. -0.5*box2[:,2:4]
+            box2_xyxy[:,2:4] = box2[:,:2]/14. +0.5*box2[:,2:4]
             iou = self.compute_iou(box1_xyxy[:,:4],box2_xyxy[:,:4]) #[2,1]
             max_iou,max_index = iou.max(0)
             max_index = max_index.data.cuda()
@@ -123,7 +123,7 @@ class yoloLoss(nn.Module):
         #3.class loss
         class_loss = F.mse_loss(class_pred,class_target,size_average=False)
 
-        return (self.l_coord*loc_loss + contain_loss + not_contain_loss + self.l_noobj*nooobj_loss + class_loss)/N
+        return (self.l_coord*loc_loss + 2*contain_loss + not_contain_loss + self.l_noobj*nooobj_loss + class_loss)/N
 
 
 
