@@ -1,0 +1,6 @@
+.ipynb_checkpoints/
+.idea/
+__pycache__/
+best.pth
+result.jpg
+test.csv
