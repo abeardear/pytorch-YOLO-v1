@@ -2,6 +2,7 @@
 #
 #created by xiongzihua
 #
+import sys
 import os
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 import numpy as np
@@ -133,10 +134,16 @@ def test_eval():
     voc_eval(preds,target,VOC_CLASSES=['cat','dog'])
 
 if __name__ == '__main__':
+
     #test_eval()
     from predict import *
     from collections import defaultdict
     from tqdm import tqdm
+
+    root_path = sys.argv[1]
+    if root_path is None:
+        print("You should specify VOC2007 image directory")
+        sys.exit()
 
     target =  defaultdict(list)
     preds = defaultdict(list)
@@ -167,23 +174,16 @@ if __name__ == '__main__':
     #start test
     #
     print('---start test---')
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     # model = vgg16_bn(pretrained=False)
     model = resnet50()
-    # model.classifier = nn.Sequential(
-    #             nn.Linear(512 * 7 * 7, 4096),
-    #             nn.ReLU(True),
-    #             nn.Dropout(),
-    #             #nn.Linear(4096, 4096),
-    #             #nn.ReLU(True),
-    #             #nn.Dropout(),
-    #             nn.Linear(4096, 1470),
-    #         )
-    model.load_state_dict(torch.load('best.pth'))
+    print("Loading model ...")
+    model.load_state_dict(torch.load('best.pth', map_location=device))
     model.eval()
-    model.cuda()
+    model = model.to(device)
     count = 0
     for image_path in tqdm(image_list):
-        result = predict_gpu(model,image_path,root_path='/home/xzh/data/VOCdevkit/VOC2012/allimgs/') #result[[left_up,right_bottom,class_name,image_path],]
+        result = predict_img(model, image_path, device, root_path=root_path) #result[[left_up,right_bottom,class_name,image_path],]
         for (x1,y1),(x2,y2),class_name,image_id,prob in result: #image_id is actually image_path
             preds[class_name].append([image_id,prob,x1,y1,x2,y2])
         # print(image_path)
@@ -198,9 +198,9 @@ if __name__ == '__main__':
         #     cv2.putText(image, label, (p1[0], p1[1] + baseline), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255,255,255), 1, 8)
 
         # cv2.imwrite('testimg/'+image_path,image)
-        # count += 1
-        # if count == 100:
-        #     break
+        count += 1
+        if count == 10:
+            break
     
     print('---start evaluate---')
     voc_eval(preds,target,VOC_CLASSES=VOC_CLASSES)

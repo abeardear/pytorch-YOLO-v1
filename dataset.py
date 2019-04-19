@@ -59,6 +59,11 @@ class yoloDataset(data.Dataset):
             self.labels.append(torch.LongTensor(label))
         self.num_samples = len(self.boxes)
 
+    def pull_img(self, idx):
+        fname = self.fnames[idx]
+        img = cv2.imread(os.path.join(self.root+fname))
+        return img
+
     def __getitem__(self,idx):
         fname = self.fnames[idx]
         img = cv2.imread(os.path.join(self.root+fname))
@@ -97,6 +102,7 @@ class yoloDataset(data.Dataset):
             img = t(img)
 
         return img,target
+
     def __len__(self):
         return self.num_samples
 
@@ -124,10 +130,13 @@ class yoloDataset(data.Dataset):
             target[int(ij[1]),int(ij[0]),7:9] = wh[i]
             target[int(ij[1]),int(ij[0]),5:7] = delta_xy
         return target
+
     def BGR2RGB(self,img):
         return cv2.cvtColor(img,cv2.COLOR_BGR2RGB)
+
     def BGR2HSV(self,img):
         return cv2.cvtColor(img,cv2.COLOR_BGR2HSV)
+
     def HSV2BGR(self,img):
         return cv2.cvtColor(img,cv2.COLOR_HSV2BGR)
     

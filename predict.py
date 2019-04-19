@@ -3,6 +3,7 @@
 #created by xiongzihua
 #
 import torch
+import os
 from torch.autograd import Variable
 import torch.nn as nn
 
@@ -74,6 +75,7 @@ def decoder(pred):
                     box_xy = torch.FloatTensor(box.size())#转换成xy形式    convert[cx,cy,w,h] to [x1,xy1,x2,y2]
                     box_xy[:2] = box[:2] - 0.5*box[2:]
                     box_xy[2:] = box[:2] + 0.5*box[2:]
+                    # print("Prediction box {}, box height {}".format(box, box[3] - box[1]))
                     max_prob,cls_index = torch.max(pred[i,j,10:],0)
                     if float((contain_prob*max_prob)[0]) > 0.1:
                         boxes.append(box_xy.view(1,4))
@@ -86,7 +88,7 @@ def decoder(pred):
     else:
         boxes = torch.cat(boxes,0) #(n,4)
         probs = torch.cat(probs,0) #(n,)
-        cls_indexs = torch.cat(cls_indexs,0) #(n,)
+        cls_indexs = torch.stack(cls_indexs,dim=0) #(n,)
     keep = nms(boxes,probs)
     return boxes[keep],cls_indexs[keep],probs[keep]
 
@@ -128,10 +130,10 @@ def nms(bboxes,scores,threshold=0.5):
 #
 #start predict one image
 #
-def predict_gpu(model,image_name,root_path=''):
+def predict_img(model, image_name, device, root_path=''):
 
     result = []
-    image = cv2.imread(root_path+image_name)
+    image = cv2.imread(os.path.join(root_path, image_name))
     h,w,_ = image.shape
     img = cv2.resize(image,(448,448))
     img = cv2.cvtColor(img,cv2.COLOR_BGR2RGB)
@@ -140,8 +142,8 @@ def predict_gpu(model,image_name,root_path=''):
 
     transform = transforms.Compose([transforms.ToTensor(),])
     img = transform(img)
-    img = Variable(img[None,:,:,:],volatile=True)
-    img = img.cuda()
+    # img = Variable(img[None,:,:,:],volatile=True)
+    img = img.unsqueeze(0).to(device)
 
     pred = model(img) #1x7x7x30
     pred = pred.cpu()
@@ -158,20 +160,54 @@ def predict_gpu(model,image_name,root_path=''):
         prob = float(prob)
         result.append([(x1,y1),(x2,y2),VOC_CLASSES[cls_index],image_name,prob])
     return result
+
+
+def predict(model, img, device, root_path=''):
+
+    result = []
+    # image = cv2.imread(root_path+image_name)
+    # h,w,_ = image.shape
+    # img = cv2.resize(image,(448,448))
+    # img = cv2.cvtColor(img,cv2.COLOR_BGR2RGB)
+    # mean = (123,117,104)#RGB
+    # img = img - np.array(mean,dtype=np.float32)
+    #
+    # transform = transforms.Compose([transforms.ToTensor(),])
+    # img = transform(img)
+    # img = Variable(img[None,:,:,:],volatile=True)
+    _, h, w = img.shape
+    img = img.unsqueeze(0).to(device)
+
+    pred = model(img) #1x7x7x30
+    pred = pred.cpu()
+    boxes,cls_indexs,probs =  decoder(pred)
+
+    for i,box in enumerate(boxes):
+        x1 = int(box[0]*w)
+        x2 = int(box[2]*w)
+        y1 = int(box[1]*h)
+        y2 = int(box[3]*h)
+        cls_index = cls_indexs[i]
+        cls_index = int(cls_index) # convert LongTensor to int
+        prob = probs[i]
+        prob = float(prob)
+        result.append([(x1,y1),(x2,y2),VOC_CLASSES[cls_index],"kur.jpg",prob])
+    return result
         
 
 
 
 if __name__ == '__main__':
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model = resnet50()
     print('load model...')
-    model.load_state_dict(torch.load('best.pth'))
+    model.load_state_dict(torch.load('best.pth', map_location=device))
     model.eval()
-    model.cuda()
+    model = model.to(device)
     image_name = 'dog.jpg'
     image = cv2.imread(image_name)
     print('predicting...')
-    result = predict_gpu(model,image_name)
+    result = predict_img(model, image_name, device)
     for left_up,right_bottom,class_name,_,prob in result:
         color = Color[VOC_CLASSES.index(class_name)]
         cv2.rectangle(image,left_up,right_bottom,color,2)
